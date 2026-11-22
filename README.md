@@ -1,11 +1,11 @@
-# Tandem Kart
+# Kart
 
 An original 3D kart racer for iPhone (three.js): two riders per kart who swap seats and items, drift mini-turbos, rocket starts, slipstreams, four items and seven AI rivals on Coral Coast.
 
-**Play:** touch: drag the left half to steer; hold DRIFT while turning and release for a turbo; hold DRIFT just before GO for a rocket start; ITEM throws the back rider's item; SWAP trades riders. Keys: arrows/A-D steer, Space drift, X item, C swap.
+**Play:** tilt the phone to steer (or drag the left half); hold BRAKE to pivot through tight turns; hold DRIFT while turning and release for a turbo; hold DRIFT just before GO for a rocket start; ITEM throws the back rider's item; SWAP trades riders. Keys: arrows/A-D steer, Space drift, S/down brake, X item, C swap.
 
 ## Deployed
-- Day snapshot: `snapshots/2026-11-21 - Tandem Kart.html` (frozen; never edited)
+- Day snapshot: `snapshots/2026-11-21 - Kart.html` (frozen; never edited)
 - Sprint demo: `npm run build:demo` → `dist/demo/page.html`
 
 Built on [app_builder](https://github.com/leftbrain847/app_builder).

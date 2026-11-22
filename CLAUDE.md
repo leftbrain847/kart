@@ -1,4 +1,4 @@
-# Tandem Kart
+# Kart
 
 ## First: repo settings (unless project.yml has `settings_done: true`)
 GitHub copies files, not settings, so J sets these by hand once per repo. At the start of any session, unless `project.yml` says `settings_done: true`, post this checklist to J **before other work**, as tappable links with this repo's real owner/name filled in for `REPO`, then keep working. When J confirms, set `settings_done: true` in the next PR. Check what you can first (`gh api repos/REPO/rulesets`, `gh api repos/REPO --jq .visibility`) and only list what's still missing.

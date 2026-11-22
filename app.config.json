@@ -1,7 +1,7 @@
 {
   "$comment": "Everything tunable about this app lives here. create-app fills id, title and mode; the rest has defaults.",
   "id": "kart",
-  "title": "Tandem Kart",
+  "title": "Kart",
   "mode": "solo",
   "host": {
     "emptyRoomTtlMs": 300000

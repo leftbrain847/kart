@@ -90,6 +90,11 @@ export interface Rules {
     spinSpeedKeepPerSec: number;
     invulnSec: number;
     swapCooldownSec: number;
+    /** E-brake: deceleration (m/s²), turn-rate multiplier, grip while sliding, and the speed it won't brake below. */
+    brakeDecel: number;
+    brakeTurnBoost: number;
+    brakeGrip: number;
+    brakeMinSpeed: number;
   };
   draft: { range: number; halfWidth: number; minSpeed: number; chargeSec: number; boostSec: number; speedFactor: number };
   start: {
@@ -174,6 +179,10 @@ export const DEFAULT_RULES: Rules = {
     spinSpeedKeepPerSec: 0.12,
     invulnSec: 1.4,
     swapCooldownSec: 0.55,
+    brakeDecel: 20,
+    brakeTurnBoost: 1.8,
+    brakeGrip: 4,
+    brakeMinSpeed: 5,
   },
   draft: { range: 13, halfWidth: 2.4, minSpeed: 16, chargeSec: 1.3, boostSec: 0.9, speedFactor: 1.12 },
   start: { rocketWindowSec: 0.4, rocketBoostSec: 1.3, stallBeforeSec: 1.1, stallSec: 0.9 },

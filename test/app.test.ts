@@ -99,6 +99,22 @@ describe('race', () => {
     expect(k.boost).toBeGreaterThan(0);
   });
 
+  it('the e-brake slows the kart and turns it tighter than steering alone', () => {
+    const turn = (brake: boolean): { speed: number; turned: number } => {
+      const race = createRace(6);
+      const k = race.karts[race.player]!;
+      while (race.tick < race.goTick + 150) step(race, NO_INPUT);
+      const h0 = k.heading;
+      for (let i = 0; i < 30; i++) step(race, { ...NO_INPUT, steer: 1, brake });
+      return { speed: k.speed, turned: Math.abs(Math.atan2(Math.sin(k.heading - h0), Math.cos(k.heading - h0))) };
+    };
+    const plain = turn(false);
+    const braked = turn(true);
+    expect(braked.speed).toBeLessThan(plain.speed);
+    expect(braked.speed).toBeGreaterThanOrEqual(DEFAULT_RULES.physics.brakeMinSpeed);
+    expect(braked.turned).toBeGreaterThan(plain.turned);
+  });
+
   it('rocket start: pressing just before GO boosts, pressing far too early stalls', () => {
     const rocket = createRace(4);
     for (let t = 0; t < rocket.goTick; t++) step(rocket, { ...NO_INPUT, drift: t >= rocket.goTick - 10 });
@@ -148,7 +164,7 @@ describe('replay', () => {
   it('encodes and decodes every input state', () => {
     for (const steer of [-1, -0.5, 0, 0.25, 1])
       for (const drift of [false, true]) {
-        const i: Input = { steer, drift, item: !drift, swap: drift };
+        const i: Input = { steer, drift, item: !drift, swap: drift, brake: !drift };
         expect(decodeInput(encodeInput(i))).toEqual(i);
       }
   });
@@ -172,7 +188,7 @@ describe('replay', () => {
       const target = pointAt(race.track, me.s + 14);
       let diff = Math.atan2(target.z - me.z, target.x - me.x) - me.heading;
       diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-      const input: Input = { steer: Math.max(-1, Math.min(1, diff * 2.5)), drift: false, item: race.tick % 300 === 0, swap: race.tick % 700 === 0 };
+      const input: Input = { steer: Math.max(-1, Math.min(1, diff * 2.5)), drift: false, item: race.tick % 300 === 0, swap: race.tick % 700 === 0, brake: Math.abs(diff) > 0.5 };
       step(race, input);
       let last = chunks[chunks.length - 1]!;
       if (tickCount(last) >= REPLAY.maxChunkTicks) chunks.push((last = []));
@@ -194,7 +210,7 @@ describe('replay', () => {
   });
 
   it('rejects malformed or out-of-order segments', () => {
-    for (const bad of [null, [], { i: 0, team: 0 }, { i: 0, team: 0, runs: [1] }, { i: 0, team: 0, runs: [200, 1] }, { i: 0, team: 0, runs: [1, 0] }, { i: 0, team: 0, runs: [1, 2], x: 1 }, { i: '0', team: 0, runs: [1, 2] }])
+    for (const bad of [null, [], { i: 0, team: 0 }, { i: 0, team: 0, runs: [1] }, { i: 0, team: 0, runs: [300, 1] }, { i: 0, team: 0, runs: [1, 0] }, { i: 0, team: 0, runs: [1, 2], x: 1 }, { i: '0', team: 0, runs: [1, 2] }])
       expect(parseSegment(bad)).toBeNull();
     const run = startRun(1);
     expect(applySegment(DEFAULT_RULES, run, { i: 1, team: 0, runs: [4, 10] })).toBeNull();
