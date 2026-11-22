@@ -26,11 +26,37 @@ export const CONTROLS = {
 
 type Button = 'drift' | 'item' | 'swap' | 'brake';
 
+/** Player sensitivity sliders: 1 = default; 2 = half the thumb travel / tilt angle for full lock. */
+export const SENSITIVITY = { min: 0.5, max: 2, step: 0.1, storageKey: 'kart.sensitivity' };
+export interface Sensitivity {
+  thumb: number;
+  tilt: number;
+}
+const clampSens = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? Math.max(SENSITIVITY.min, Math.min(SENSITIVITY.max, v)) : 1);
+
+export function loadSensitivity(): Sensitivity {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SENSITIVITY.storageKey) ?? '{}') as Partial<Sensitivity>;
+    return { thumb: clampSens(raw.thumb), tilt: clampSens(raw.tilt) };
+  } catch {
+    return { thumb: 1, tilt: 1 };
+  }
+}
+
+export function saveSensitivity(s: Sensitivity): void {
+  try {
+    localStorage.setItem(SENSITIVITY.storageKey, JSON.stringify(s));
+  } catch {
+    // Storage blocked (private mode, framed page): the setting just lasts this visit.
+  }
+}
+
 /** Thumb drag (px from where the thumb landed) to steering -1..1: dead zone, then a curve. */
-export function dragToSteer(dx: number, c: Pick<typeof CONTROLS, 'steerRangePx' | 'deadZonePx' | 'steerCurve'> = CONTROLS): number {
+export function dragToSteer(dx: number, sensitivity = 1, c: Pick<typeof CONTROLS, 'steerRangePx' | 'deadZonePx' | 'steerCurve'> = CONTROLS): number {
+  const range = Math.max(c.deadZonePx + 10, c.steerRangePx / clampSens(sensitivity));
   const mag = Math.abs(dx);
   if (mag <= c.deadZonePx) return 0;
-  const n = Math.min(1, (mag - c.deadZonePx) / (c.steerRangePx - c.deadZonePx));
+  const n = Math.min(1, (mag - c.deadZonePx) / (range - c.deadZonePx));
   return Math.sign(dx) * Math.pow(n, c.steerCurve);
 }
 
@@ -47,6 +73,7 @@ export class Controls {
   /** True once the phone has sent a motion reading. */
   tiltLive = false;
   tiltWanted = true;
+  sens: Sensitivity = loadSensitivity();
   readonly knob: HTMLDivElement;
 
   constructor(root: HTMLElement, buttons: Record<Button, HTMLElement>) {
@@ -114,7 +141,7 @@ export class Controls {
     const T = CONTROLS.tilt;
     let d = raw - this.tiltNeutral;
     d = Math.abs(d) < T.deadZoneDeg ? 0 : d - Math.sign(d) * T.deadZoneDeg;
-    const n = Math.max(-1, Math.min(1, d / (T.fullLockDeg - T.deadZoneDeg)));
+    const n = Math.max(-1, Math.min(1, d / (T.fullLockDeg / clampSens(this.sens.tilt) - T.deadZoneDeg)));
     const shaped = Math.sign(n) * Math.pow(Math.abs(n), T.curve);
     this.tiltValue += (shaped - this.tiltValue) * T.smoothing;
   }
@@ -140,13 +167,14 @@ export class Controls {
       if (t.identifier !== this.steerTouch) continue;
       let dx = t.clientX - this.steerOrigin;
       // Re-centre if the thumb drifts past full lock, so reversing is always quick.
-      if (Math.abs(dx) > CONTROLS.steerRangePx) {
-        this.steerOrigin = t.clientX - Math.sign(dx) * CONTROLS.steerRangePx;
-        dx = Math.sign(dx) * CONTROLS.steerRangePx;
+      const range = CONTROLS.steerRangePx / clampSens(this.sens.thumb);
+      if (Math.abs(dx) > range) {
+        this.steerOrigin = t.clientX - Math.sign(dx) * range;
+        dx = Math.sign(dx) * range;
         this.knob.style.left = `${this.steerOrigin}px`;
       }
-      this.steerTouchTarget = dragToSteer(dx);
-      this.knob.style.setProperty('--dx', `${(dx / CONTROLS.steerRangePx) * 32}px`);
+      this.steerTouchTarget = dragToSteer(dx, this.sens.thumb);
+      this.knob.style.setProperty('--dx', `${(dx / range) * 32}px`);
       e.preventDefault();
     }
   }

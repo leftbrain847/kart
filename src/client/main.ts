@@ -10,7 +10,7 @@ import { TEAMS, type ItemKind } from '../game/config';
 import { pushInput, tickCount } from '../game/replay';
 import { createRace, lapOf, NO_INPUT, raceTimeSec, standings, step, type Race } from '../game/sim';
 import { Sound } from './audio';
-import { Controls } from './controls';
+import { Controls, SENSITIVITY, saveSensitivity, type Sensitivity } from './controls';
 import { el, render } from './ui';
 import { RaceView } from './view';
 
@@ -111,6 +111,28 @@ function sendChunk(final: boolean): void {
 
 // ---------- Screens ----------
 
+/** Thumb and tilt sensitivity sliders; changes apply at once and are remembered on this device. */
+function sensitivityPanel(): HTMLElement {
+  const slider = (key: keyof Sensitivity, label: string): HTMLElement => {
+    const out = el('span', { className: 'val', text: `${Math.round(controls.sens[key] * 100)}%` });
+    const input = el('input');
+    input.type = 'range';
+    input.min = String(SENSITIVITY.min);
+    input.max = String(SENSITIVITY.max);
+    input.step = String(SENSITIVITY.step);
+    input.value = String(controls.sens[key]);
+    input.setAttribute('aria-label', `${label} steering sensitivity`);
+    input.addEventListener('input', () => {
+      controls.sens = { ...controls.sens, [key]: Number(input.value) };
+      out.textContent = `${Math.round(controls.sens[key] * 100)}%`;
+      saveSensitivity(controls.sens);
+    });
+    for (const ev of ['touchstart', 'touchmove'] as const) input.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
+    return el('label', { className: 'sens' }, [el('span', { text: label }), input, out]);
+  };
+  return el('div', { className: 'senses' }, [el('strong', { text: 'Steering sensitivity' }), slider('thumb', 'Thumb'), slider('tilt', 'Tilt')]);
+}
+
 function titleScreen(): void {
   mode = 'title';
   newRace(true);
@@ -135,6 +157,7 @@ function titleScreen(): void {
         el('p', { className: 'sub', text: 'Two riders. One kart. Coral Coast, 3 laps.' }),
         el('div', { className: 'crews' }, cards),
         el('button', { className: 'go', text: 'RACE', onClick: startRace }),
+        sensitivityPanel(),
         el('p', { className: 'how', text: 'Tilt the phone to steer (or drag the left side) | hold DRIFT while turning, release for a turbo | BRAKE pivots through tight turns | hold DRIFT just before GO for a rocket start | ITEM throws the back rider\'s item | SWAP trades riders. Hold the phone how you like before tapping RACE: that\'s straight ahead.' }),
       ]),
     ]),
@@ -166,10 +189,20 @@ function startRace(): void {
   );
 }
 
+let pauseMenu: HTMLElement | null = null;
 function togglePause(): void {
   if (mode !== 'race') return;
   paused = !paused;
-  say(paused ? 'PAUSED' : 'GO!', paused ? 9999 : 0.6);
+  pauseMenu?.remove();
+  pauseMenu = null;
+  if (paused) {
+    pauseMenu = el('div', { className: 'panel pausemenu' }, [
+      el('h1', { text: 'PAUSED' }),
+      sensitivityPanel(),
+      el('div', { className: 'row' }, [el('button', { className: 'go', text: 'RESUME', onClick: togglePause }), el('button', { className: 'alt', text: 'QUIT', onClick: () => ((paused = false), titleScreen()) })]),
+    ]);
+    document.querySelector('.screen')?.appendChild(pauseMenu);
+  } else say('GO!', 0.6);
 }
 
 function resultsScreen(): void {
