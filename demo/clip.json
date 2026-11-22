@@ -1,0 +1,10 @@
+{
+  "seconds": 7,
+  "hash": "attract",
+  "selector": "#app",
+  "steps": [
+    { "wait": 3600 },
+    { "start": true },
+    { "wait": 6500 }
+  ]
+}
