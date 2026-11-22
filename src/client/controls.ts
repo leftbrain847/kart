@@ -6,9 +6,13 @@
 import type { Input } from '../game/sim';
 
 export const CONTROLS = {
-  /** Horizontal drag in px for full lock. */
-  steerRangePx: 70,
-  deadZonePx: 6,
+  /** Horizontal thumb drag in px for full lock (longer = calmer). */
+  steerRangePx: 110,
+  deadZonePx: 8,
+  /** Drag response curve: 1 = linear, >1 = gentle for small moves, full lock still at the end. */
+  steerCurve: 1.7,
+  /** How fast thumb steering follows the thumb, per second (stops instant snaps to full lock). */
+  steerFollowPerSec: 14,
   tilt: {
     /** Degrees of tilt from where you held the phone at the start for full lock. Higher = less sensitive. */
     fullLockDeg: 24,
@@ -22,10 +26,19 @@ export const CONTROLS = {
 
 type Button = 'drift' | 'item' | 'swap' | 'brake';
 
+/** Thumb drag (px from where the thumb landed) to steering -1..1: dead zone, then a curve. */
+export function dragToSteer(dx: number, c: Pick<typeof CONTROLS, 'steerRangePx' | 'deadZonePx' | 'steerCurve'> = CONTROLS): number {
+  const mag = Math.abs(dx);
+  if (mag <= c.deadZonePx) return 0;
+  const n = Math.min(1, (mag - c.deadZonePx) / (c.steerRangePx - c.deadZonePx));
+  return Math.sign(dx) * Math.pow(n, c.steerCurve);
+}
+
 export class Controls {
   private steerTouch: number | null = null;
   private steerOrigin = 0;
   private steerTouchValue = 0;
+  private steerTouchTarget = 0;
   private keys = new Set<string>();
   private held: Record<Button, boolean> = { drift: false, item: false, swap: false, brake: false };
   private tiltRaw: number | null = null;
@@ -112,6 +125,7 @@ export class Controls {
         this.steerTouch = t.identifier;
         this.steerOrigin = t.clientX;
         this.steerTouchValue = 0;
+        this.steerTouchTarget = 0;
         this.knob.classList.add('on');
         this.knob.style.left = `${t.clientX}px`;
         this.knob.style.top = `${t.clientY}px`;
@@ -131,8 +145,8 @@ export class Controls {
         dx = Math.sign(dx) * CONTROLS.steerRangePx;
         this.knob.style.left = `${this.steerOrigin}px`;
       }
-      this.steerTouchValue = Math.abs(dx) < CONTROLS.deadZonePx ? 0 : dx / CONTROLS.steerRangePx;
-      this.knob.style.setProperty('--dx', `${dx}px`);
+      this.steerTouchTarget = dragToSteer(dx);
+      this.knob.style.setProperty('--dx', `${(dx / CONTROLS.steerRangePx) * 32}px`);
       e.preventDefault();
     }
   }
@@ -142,12 +156,15 @@ export class Controls {
       if (t.identifier === this.steerTouch) {
         this.steerTouch = null;
         this.steerTouchValue = 0;
+        this.steerTouchTarget = 0;
         this.knob.classList.remove('on');
       }
   }
 
-  read(): Input {
+  /** Current input. `dt` (seconds since the last read) eases thumb steering toward the thumb. */
+  read(dt = 1 / 60): Input {
     const k = this.keys;
+    this.steerTouchValue += (this.steerTouchTarget - this.steerTouchValue) * Math.min(1, CONTROLS.steerFollowPerSec * dt);
     const keySteer = (k.has('arrowright') || k.has('d') ? 1 : 0) - (k.has('arrowleft') || k.has('a') ? 1 : 0);
     const steer = keySteer !== 0 ? keySteer : this.steerTouch !== null ? this.steerTouchValue : this.tiltWanted && this.tiltLive ? this.tiltValue : 0;
     return {
