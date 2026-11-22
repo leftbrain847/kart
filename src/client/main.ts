@@ -1,5 +1,5 @@
 /**
- * Tandem Kart client: title + crew select, the race (three.js view, HUD, touch controls), results.
+ * Kart client: title + crew select, the race (three.js view, HUD, touch controls), results.
  * The race sim runs at a fixed 60 Hz in the browser. On the friends host, inputs are also sent to the server in
  * chunks so it can replay the race and record the score. In the Play/demo build the network paths compile out.
  */
@@ -47,6 +47,7 @@ const btn = {
   drift: el('button', { className: 'ctl drift', text: 'DRIFT' }),
   item: el('button', { className: 'ctl item', text: 'ITEM' }),
   swap: el('button', { className: 'ctl swap', text: 'SWAP' }),
+  brake: el('button', { className: 'ctl brake', text: 'BRAKE' }),
 };
 const touchLayer = el('div', { className: 'touch' });
 const controls = new Controls(touchLayer, btn);
@@ -79,6 +80,7 @@ function newRace(attract: boolean): void {
   if (attract) race.karts[race.player]!.ai = true;
   runs = [[]];
   ranked = null;
+  controls.recentre();
   ensureView();
   drawMap(true);
   if (ONLINE && !attract) {
@@ -129,11 +131,11 @@ function titleScreen(): void {
     el('div', { className: 'screen' }, [
       canvas,
       el('div', { className: 'panel title' }, [
-        el('h1', { text: 'TANDEM KART' }),
+        el('h1', { text: 'KART' }),
         el('p', { className: 'sub', text: 'Two riders. One kart. Coral Coast, 3 laps.' }),
         el('div', { className: 'crews' }, cards),
         el('button', { className: 'go', text: 'RACE', onClick: startRace }),
-        el('p', { className: 'how', text: 'Drag left side to steer | hold DRIFT while turning, release for a turbo | hold DRIFT just before GO for a rocket start | ITEM throws the back rider\'s item | SWAP trades riders (and items).' }),
+        el('p', { className: 'how', text: 'Tilt the phone to steer (or drag the left side) | hold DRIFT while turning, release for a turbo | BRAKE pivots through tight turns | hold DRIFT just before GO for a rocket start | ITEM throws the back rider\'s item | SWAP trades riders. Hold the phone how you like before tapping RACE: that\'s straight ahead.' }),
       ]),
     ]),
   );
@@ -141,6 +143,7 @@ function titleScreen(): void {
 
 function startRace(): void {
   sound.unlock();
+  void controls.enableTilt();
   mode = 'race';
   newRace(ATTRACT);
   paused = false;
@@ -157,6 +160,8 @@ function startRace(): void {
         el('button', { className: 'pause', text: 'II', onClick: togglePause }),
       ]),
       el('div', { className: 'pad' }, [btn.swap, btn.item, btn.drift]),
+      btn.brake,
+      el('button', { className: 'recentre', text: 'CENTRE', onClick: () => (controls.recentre(), toast('STEERING CENTRED')) }),
     ]),
   );
 }
@@ -270,6 +275,7 @@ function handleEvents(): void {
   for (const e of race.events) {
     if (e.type === 'go') {
       say('GO!', 0.8);
+      if (!controls.tiltLive && !ATTRACT) toast('DRAG LEFT SIDE TO STEER');
       sound.tone(880, 0.5, 'square', 0.25);
     } else if ('kart' in e && e.kart !== me) {
       if (e.type === 'hit' && e.by === me) {

@@ -18,9 +18,11 @@ export interface Input {
   item: boolean;
   /** Swap riders (and their items). Edge-triggered. */
   swap: boolean;
+  /** E-brake: slows the kart and pivots it through tight turns. Held. */
+  brake: boolean;
 }
 
-export const NO_INPUT: Input = { steer: 0, drift: false, item: false, swap: false };
+export const NO_INPUT: Input = { steer: 0, drift: false, item: false, swap: false, brake: false };
 
 export interface Kart {
   id: number;
@@ -228,7 +230,7 @@ function aiInput(race: Race, k: Kart): Input {
     k.aiHold = 0;
     if (!held && k.items[0] && k.swapCd <= 0 && nextRandom(race) < 1 / race.rules.tickHz) swap = true;
   }
-  return { steer: quantiseSteer(steer), drift: k.aiDrift !== 0, item, swap };
+  return { steer: quantiseSteer(steer), drift: k.aiDrift !== 0, item, swap, brake: false };
 }
 
 /** Is `o` in front of `k`, within `range` metres and `cone` radians of its travel direction? */
@@ -363,7 +365,12 @@ function stepKart(race: Race, k: Kart, input: Input, dt: number): void {
     slip = k.drift * P.driftSlip;
     grip = P.driftGrip;
   } else if (controllable) {
-    k.heading += steer * stats.handling * speedFrac * hiLoss * dt;
+    const braking = input.brake && k.speed > P.brakeMinSpeed;
+    k.heading += steer * stats.handling * speedFrac * hiLoss * (braking ? P.brakeTurnBoost : 1) * dt;
+    if (braking) {
+      k.speed = Math.max(P.brakeMinSpeed, k.speed - P.brakeDecel * dt);
+      grip = P.brakeGrip;
+    }
   }
   k.heading = wrapAngle(k.heading);
   const targetMove = k.spin > 0 ? k.moveAngle : k.heading - slip;

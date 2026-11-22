@@ -1,5 +1,5 @@
 /**
- * Tandem Kart's rules as an app_builder GameModule. Solo mode: the race runs in the browser; on the friends host
+ * Kart's rules as an app_builder GameModule. Solo mode: the race runs in the browser; on the friends host
  * the client also sends its inputs in chunks and the server replays the race from its own seed to score it.
  * Pure and deterministic: all of it lives in src/game/.
  */
