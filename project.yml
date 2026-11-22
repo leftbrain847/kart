@@ -1,8 +1,8 @@
 # Read nightly by leftbrain847/index. /new-project fills this in; edit any time.
-theme: ""             # one of the index's config.themes
-tags: []              # from the index's config.tags; new tags lowercase_with_underscores
-what: ""              # one line on what this is
-next: ""              # the next step
-active: false         # true pulls this repo's tasks into J's queue
-public: false         # informational; each sprint day's snapshot decides publishing
+theme: games
+tags: []
+what: "Tandem Kart: original 3D kart racer for iPhone with two-rider karts (swap riders and items), drift mini-turbos, rocket starts and 7 AI rivals"
+next: "Play-test on a real iPhone; add crew special items and a second track"
+active: true
+public: true
 settings_done: false  # J sets the repo settings listed in CLAUDE.md, then this flips to true
