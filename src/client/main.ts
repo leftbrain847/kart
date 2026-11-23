@@ -158,7 +158,7 @@ function titleScreen(): void {
         el('div', { className: 'crews' }, cards),
         el('button', { className: 'go', text: 'RACE', onClick: startRace }),
         sensitivityPanel(),
-        el('p', { className: 'how', text: 'Tilt the phone to steer (or drag the left side) | hold DRIFT while turning, release for a turbo | BRAKE pivots through tight turns | hold DRIFT just before GO for a rocket start | ITEM throws the back rider\'s item | SWAP trades riders. Hold the phone how you like before tapping RACE: that\'s straight ahead.' }),
+        el('p', { className: 'how', text: 'Turn the phone like a steering wheel (or drag the left side) | hold DRIFT while turning, release for a turbo | BRAKE pivots through tight turns | hold DRIFT just before GO for a rocket start | ITEM throws the back rider\'s item | SWAP trades riders. Hold the phone how you like before tapping RACE: that\'s straight ahead.' }),
       ]),
     ]),
   );
