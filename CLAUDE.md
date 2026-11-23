@@ -58,3 +58,4 @@ An app built on app_builder. The platform rules live in `platform/SPEC.md`: read
 
 - **Kart has one sprint day: 2026-11-21.** Later work is fixes and features on the same project, not new sprint days: don't run `npm run snapshot` for it and don't commit new files to `snapshots/` (each dated file becomes a day on the public sprint site). J decided this on 2026-11-23.
 - Share work in progress as one living artifact titled "Kart", republished in place, not a new dated artifact per day.
+- **Every PR that changes the app runs `npm run live` and commits `live/Kart.html`**: the living version. The index pairs it with the sprint day ("Current version" on the sprint site) and the homepage tile opens it. It's a deliberate exception to "no generated files in PRs", like `snapshots/`.
