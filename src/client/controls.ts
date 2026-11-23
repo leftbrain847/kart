@@ -35,7 +35,7 @@ type Button = 'drift' | 'item' | 'swap' | 'brake';
  * The phone's steering-wheel angle, in degrees: how far "up" has rotated within the plane of the screen.
  * Built from deviceorientation beta/gamma (the world's up vector in the phone's own axes), so tipping the
  * phone toward or away from you changes nothing, and it works the same in portrait and landscape.
- * Turning the phone clockwise (as you look at it) makes the angle go down. Returns null when the phone is
+ * By the spec maths the angle goes down as the phone turns clockwise; J's iPhone reports the opposite (see TiltTracker). Returns null when the phone is
  * too close to flat for the angle to mean anything.
  */
 export function wheelAngle(betaDeg: number, gammaDeg: number, minInPlane = CONTROLS.tilt.minInPlane): number | null {
@@ -61,7 +61,10 @@ export class TiltTracker {
   value = 0;
   private farSince: number | null = null;
 
-  constructor(private sensitivity: () => number = () => 1) {}
+  constructor(
+    private sensitivity: () => number = () => 1,
+    private reversed: () => boolean = () => false,
+  ) {}
 
   /** Full lock, in degrees of turn, at the current sensitivity. */
   lockDeg(): number {
@@ -79,8 +82,10 @@ export class TiltTracker {
     const T = CONTROLS.tilt;
     this.raw = raw;
     if (this.neutral === null) this.neutral = raw;
-    // Clockwise turn = angle goes down = steer right.
-    let d = angleDiff(this.neutral, raw);
+    // Turning the phone clockwise steers right. On J's iPhone (2026-11-23) the wheel angle rises when it turns
+    // clockwise, the opposite of what the spec maths in wheelAngle() predicted, so the sign is set from that report.
+    // The player's "Reverse tilt" switch flips it for phones that disagree.
+    let d = angleDiff(raw, this.neutral) * (this.reversed() ? -1 : 1);
     const lock = this.lockDeg();
     if (Math.abs(d) > lock + T.gripChangeMarginDeg) {
       this.farSince ??= nowMs;
@@ -103,15 +108,17 @@ export const SENSITIVITY = { min: 0.25, max: 2, step: 0.1, storageKey: 'kart.sen
 export interface Sensitivity {
   thumb: number;
   tilt: number;
+  /** Player switch for phones that report tilt the other way round. */
+  reverseTilt: boolean;
 }
 const clampSens = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? Math.max(SENSITIVITY.min, Math.min(SENSITIVITY.max, v)) : 1);
 
 export function loadSensitivity(): Sensitivity {
   try {
     const raw = JSON.parse(localStorage.getItem(SENSITIVITY.storageKey) ?? '{}') as Partial<Sensitivity>;
-    return { thumb: clampSens(raw.thumb), tilt: clampSens(raw.tilt) };
+    return { thumb: clampSens(raw.thumb), tilt: clampSens(raw.tilt), reverseTilt: raw.reverseTilt === true };
   } catch {
-    return { thumb: 1, tilt: 1 };
+    return { thumb: 1, tilt: 1, reverseTilt: false };
   }
 }
 
@@ -139,7 +146,7 @@ export class Controls {
   private steerTouchTarget = 0;
   private keys = new Set<string>();
   private held: Record<Button, boolean> = { drift: false, item: false, swap: false, brake: false };
-  readonly tilt = new TiltTracker(() => this.sens.tilt);
+  readonly tilt = new TiltTracker(() => this.sens.tilt, () => this.sens.reverseTilt);
   /** True once the phone has sent a motion reading. */
   tiltLive = false;
   tiltWanted = true;

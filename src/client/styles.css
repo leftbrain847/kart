@@ -79,3 +79,4 @@ h1 { margin: 0; font-size: clamp(34px, 9vw, 64px); font-weight: 900; font-style:
 .tiltmeter { position: absolute; top: max(10px, env(safe-area-inset-top)); left: calc(50% - 32px); width: 64px; height: 10px; border-radius: 5px; background: var(--shade); border: 1px solid rgba(255, 255, 255, 0.5); opacity: 0; }
 .tiltmeter.on { opacity: 1; }
 .tiltmeter i { position: absolute; top: 1px; left: 28px; width: 8px; height: 8px; border-radius: 50%; background: var(--sun); transform: translateX(calc(var(--s, 0) * 28px)); }
+.flip { margin-top: 4px; min-height: 36px; border-radius: 10px; background: rgba(255, 255, 255, 0.15); font-size: 13px; font-weight: 700; }

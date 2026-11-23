@@ -15,7 +15,11 @@ function pose(turn: number, pitch: number): [number, number] {
   return [(Math.asin(uy) * 180) / Math.PI, (Math.atan2(-ux, uz) * 180) / Math.PI];
 }
 
-/** The steering the game reads (degrees from straight ahead, + = right), as in Controls.onTilt. */
+/**
+ * How far the wheel angle moved, in degrees, from `neutral` to `now`. In this model's (spec) maths it falls as the
+ * phone turns clockwise; on J's iPhone it rises. The tests below check the geometry (tipping is ignored, turning is
+ * not), and the TiltTracker tests pin the game's direction to the phone.
+ */
 const steerDeg = (neutral: [number, number], now: [number, number]): number => angleDiff(wheelAngle(...neutral)!, wheelAngle(...now)!);
 
 describe('tilt steering (phone as a steering wheel)', () => {
@@ -75,7 +79,17 @@ describe('tilt straight-ahead (J: "now it just turns right")', () => {
     const t = new TiltTracker();
     let now = hold(t, 90, 30, 0, 300);
     hold(t, 90 + CONTROLS.tilt.fullLockDeg * 0.8, 30, now, 2000);
-    expect(t.value).toBeGreaterThan(0.3); // clockwise = right
+    expect(Math.abs(t.value)).toBeGreaterThan(0.3);
+  });
+
+  it("steers the way J's iPhone needs (a rising wheel angle = right), and the Reverse tilt switch flips it", () => {
+    const rising = (reversed: boolean): number => {
+      const t = new TiltTracker(() => 1, () => reversed);
+      for (let now = 0, a = 0; now < 1500; now += 16) t.reading(now < 200 ? 0 : (a = Math.min(20, a + 1)), now);
+      return t.value;
+    };
+    expect(rising(false)).toBeGreaterThan(0.2);
+    expect(rising(true)).toBeLessThan(-0.2);
   });
 
   it('the sensitivity slider changes how far you turn for full lock', () => {
@@ -84,6 +98,6 @@ describe('tilt straight-ahead (J: "now it just turns right")', () => {
     for (const t of [calm, keen]) hold(t, 90, 30, 0, 200);
     hold(calm, 110, 30, 200, 1000);
     hold(keen, 110, 30, 200, 1000);
-    expect(keen.value).toBeGreaterThan(calm.value);
+    expect(Math.abs(keen.value)).toBeGreaterThan(Math.abs(calm.value));
   });
 });
