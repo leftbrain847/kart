@@ -10,7 +10,7 @@ import { nextRandom } from './rng';
 import { buildTrack, CORAL_COAST, curvatureAhead, pointAt, project, wrapS, type Track } from './track';
 
 export interface Input {
-  /** -1 (full left) .. 1 (full right); quantised to quarters. */
+  /** -1 (full left) .. 1 (full right); quantised to sixteenths. */
   steer: number;
   /** Drift / hop (and rocket start during the countdown). Held. */
   drift: boolean;
@@ -144,7 +144,9 @@ const wrapAngle = (a: number): number => {
 const clamp = (v: number, lo: number, hi: number): number => (v < lo ? lo : v > hi ? hi : v);
 const sign = (v: number): number => (v > 0 ? 1 : v < 0 ? -1 : 0);
 
-export const quantiseSteer = (s: number): number => Math.round(clamp(s, -1, 1) * 4) / 4;
+/** Steering resolution: 1/16 of full lock, fine enough for gentle corrections. */
+export const STEER_STEPS = 16;
+export const quantiseSteer = (s: number): number => Math.round(clamp(s, -1, 1) * STEER_STEPS) / STEER_STEPS;
 
 /** A new race. `playerTeam` picks the player's crew; the other karts cycle through the crews. */
 export function createRace(seed: number, playerTeam = 0, rules: Rules = DEFAULT_RULES): Race {

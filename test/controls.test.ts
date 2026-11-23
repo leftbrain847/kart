@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CONTROLS, dragToSteer } from '../src/client/controls';
+import { quantiseSteer } from '../src/game/sim';
 
 describe('thumb steering', () => {
   it('ignores tiny wobbles inside the dead zone', () => {
@@ -19,6 +20,11 @@ describe('thumb steering', () => {
     expect(dragToSteer(half, 1)).toBeLessThan(0.5);
     expect(dragToSteer(CONTROLS.steerRangePx, 0.5)).toBeLessThan(0.5); // half sensitivity: calmer
     expect(dragToSteer(half, 99)).toBe(dragToSteer(half, 2)); // clamped to the slider's range
+  });
+
+  it('gentle corrections survive into the race: the sim steers in sixteenths, not quarters', () => {
+    expect(quantiseSteer(0.07)).toBeCloseTo(0.0625);
+    expect(quantiseSteer(0.2)).toBeCloseTo(0.1875);
   });
 
   it('rises steadily with the drag', () => {
