@@ -23,6 +23,9 @@ export const CONTROLS = {
     curve: 1.8,
     /** Below this share of gravity in the screen's plane (phone near flat) the wheel angle is ignored. */
     minInPlane: 0.25,
+    /** Turned this far past full lock for `gripChangeMs` = the player changed grip, not steering: re-centre. */
+    gripChangeMarginDeg: 30,
+    gripChangeMs: 500,
   },
 };
 
@@ -46,6 +49,54 @@ export function wheelAngle(betaDeg: number, gammaDeg: number, minInPlane = CONTR
 
 /** Signed difference a - b in degrees, wrapped to -180..180. */
 export const angleDiff = (a: number, b: number): number => ((((a - b) % 360) + 540) % 360) - 180;
+
+/**
+ * Tilt steering state, kept apart from the page so it can be tested. Feed it wheel angles; read `value` (-1..1).
+ * Straight ahead is the first reading after a `recentre()` (race start, GO, screen rotation, CENTRE button), and a
+ * long, far turn past full lock counts as a change of grip and re-centres too.
+ */
+export class TiltTracker {
+  neutral: number | null = null;
+  raw: number | null = null;
+  value = 0;
+  private farSince: number | null = null;
+
+  constructor(private sensitivity: () => number = () => 1) {}
+
+  /** Full lock, in degrees of turn, at the current sensitivity. */
+  lockDeg(): number {
+    return CONTROLS.tilt.fullLockDeg / clampSens(this.sensitivity());
+  }
+
+  /** Take straight ahead from the next reading. */
+  recentre(): void {
+    this.neutral = null;
+    this.value = 0;
+    this.farSince = null;
+  }
+
+  reading(raw: number, nowMs: number): void {
+    const T = CONTROLS.tilt;
+    this.raw = raw;
+    if (this.neutral === null) this.neutral = raw;
+    // Clockwise turn = angle goes down = steer right.
+    let d = angleDiff(this.neutral, raw);
+    const lock = this.lockDeg();
+    if (Math.abs(d) > lock + T.gripChangeMarginDeg) {
+      this.farSince ??= nowMs;
+      if (nowMs - this.farSince >= T.gripChangeMs) {
+        this.neutral = raw;
+        this.value = 0;
+        this.farSince = null;
+        return;
+      }
+    } else this.farSince = null;
+    d = Math.abs(d) < T.deadZoneDeg ? 0 : d - Math.sign(d) * T.deadZoneDeg;
+    const n = Math.max(-1, Math.min(1, d / (lock - T.deadZoneDeg)));
+    const shaped = Math.sign(n) * Math.pow(Math.abs(n), T.curve);
+    this.value += (shaped - this.value) * T.smoothing;
+  }
+}
 
 /** Player sensitivity sliders: 1 = default; 2 = half the thumb travel / tilt angle for full lock; 0.25 = four times as much. */
 export const SENSITIVITY = { min: 0.25, max: 2, step: 0.1, storageKey: 'kart.sensitivity' };
@@ -88,9 +139,7 @@ export class Controls {
   private steerTouchTarget = 0;
   private keys = new Set<string>();
   private held: Record<Button, boolean> = { drift: false, item: false, swap: false, brake: false };
-  private tiltRaw: number | null = null;
-  private tiltNeutral: number | null = null;
-  private tiltValue = 0;
+  readonly tilt = new TiltTracker(() => this.sens.tilt);
   /** True once the phone has sent a motion reading. */
   tiltLive = false;
   tiltWanted = true;
@@ -133,6 +182,9 @@ export class Controls {
     window.addEventListener('keyup', (e) => this.keys.delete(e.key.toLowerCase()));
     window.addEventListener('blur', () => this.keys.clear());
     window.addEventListener('deviceorientation', (e) => this.onTilt(e));
+    // Turning the phone between portrait and landscape changes what "straight ahead" is.
+    screen.orientation?.addEventListener?.('change', () => this.recentre());
+    window.addEventListener('orientationchange', () => this.recentre());
   }
 
   /** Ask for motion access. iOS only allows this from a tap, so call it from the RACE button. */
@@ -145,26 +197,17 @@ export class Controls {
     }
   }
 
-  /** Treat the way the phone is held right now as straight ahead. */
+  /** Treat the way the phone is held from the next reading on as straight ahead. */
   recentre(): void {
-    this.tiltNeutral = this.tiltRaw;
-    this.tiltValue = 0;
+    this.tilt.recentre();
   }
 
   private onTilt(e: DeviceOrientationEvent): void {
     if (e.beta === null || e.gamma === null) return;
     const raw = wheelAngle(e.beta, e.gamma);
     if (raw === null) return; // phone held flat: keep the last steering
-    this.tiltRaw = raw;
     this.tiltLive = true;
-    if (this.tiltNeutral === null) this.tiltNeutral = raw;
-    const T = CONTROLS.tilt;
-    // Clockwise turn = angle goes down = steer right.
-    let d = angleDiff(this.tiltNeutral, raw);
-    d = Math.abs(d) < T.deadZoneDeg ? 0 : d - Math.sign(d) * T.deadZoneDeg;
-    const n = Math.max(-1, Math.min(1, d / (T.fullLockDeg / clampSens(this.sens.tilt) - T.deadZoneDeg)));
-    const shaped = Math.sign(n) * Math.pow(Math.abs(n), T.curve);
-    this.tiltValue += (shaped - this.tiltValue) * T.smoothing;
+    this.tilt.reading(raw, e.timeStamp);
   }
 
   private touchStart(e: TouchEvent): void {
@@ -215,7 +258,7 @@ export class Controls {
     const k = this.keys;
     this.steerTouchValue += (this.steerTouchTarget - this.steerTouchValue) * Math.min(1, CONTROLS.steerFollowPerSec * dt);
     const keySteer = (k.has('arrowright') || k.has('d') ? 1 : 0) - (k.has('arrowleft') || k.has('a') ? 1 : 0);
-    const steer = keySteer !== 0 ? keySteer : this.steerTouch !== null ? this.steerTouchValue : this.tiltWanted && this.tiltLive ? this.tiltValue : 0;
+    const steer = keySteer !== 0 ? keySteer : this.steerTouch !== null ? this.steerTouchValue : this.tiltWanted && this.tiltLive ? this.tilt.value : 0;
     return {
       steer: Math.max(-1, Math.min(1, steer)),
       drift: this.held.drift || k.has(' ') || k.has('shift'),

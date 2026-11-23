@@ -50,6 +50,8 @@ const btn = {
   brake: el('button', { className: 'ctl brake', text: 'BRAKE' }),
 };
 const touchLayer = el('div', { className: 'touch' });
+// Shows what the game reads from the phone's tilt: the dot sits in the middle when the kart is going straight.
+const tiltMeter = el('div', { className: 'tiltmeter' }, [el('i')]);
 const controls = new Controls(touchLayer, btn);
 let bannerUntil = 0;
 let toastUntil = 0;
@@ -185,6 +187,7 @@ function startRace(): void {
       el('div', { className: 'pad' }, [btn.swap, btn.item, btn.drift]),
       btn.brake,
       el('button', { className: 'recentre', text: 'CENTRE', onClick: () => (controls.recentre(), toast('STEERING CENTRED')) }),
+      tiltMeter,
     ]),
   );
 }
@@ -300,6 +303,8 @@ function updateHud(): void {
   if (now > toastUntil) hud.toast.classList.remove('on');
   btn.drift.classList.toggle(`t${me.tier}`, me.tier > 0);
   for (const t of [1, 2, 3]) if (t !== me.tier) btn.drift.classList.remove(`t${t}`);
+  tiltMeter.classList.toggle('on', controls.tiltLive);
+  if (controls.tiltLive) tiltMeter.style.setProperty('--s', controls.tilt.value.toFixed(3));
   drawMap();
 }
 
@@ -308,6 +313,7 @@ function handleEvents(): void {
   for (const e of race.events) {
     if (e.type === 'go') {
       say('GO!', 0.8);
+      controls.recentre(); // straight ahead = how the phone is held at GO
       if (!controls.tiltLive && !ATTRACT) toast('DRAG LEFT SIDE TO STEER');
       sound.tone(880, 0.5, 'square', 0.25);
     } else if ('kart' in e && e.kart !== me) {
