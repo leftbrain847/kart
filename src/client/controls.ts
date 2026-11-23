@@ -21,10 +21,31 @@ export const CONTROLS = {
     smoothing: 0.3,
     /** Readings ease toward full lock along this curve: 1 = linear, >1 = gentler near centre. */
     curve: 1.8,
+    /** Below this share of gravity in the screen's plane (phone near flat) the wheel angle is ignored. */
+    minInPlane: 0.25,
   },
 };
 
 type Button = 'drift' | 'item' | 'swap' | 'brake';
+
+/**
+ * The phone's steering-wheel angle, in degrees: how far "up" has rotated within the plane of the screen.
+ * Built from deviceorientation beta/gamma (the world's up vector in the phone's own axes), so tipping the
+ * phone toward or away from you changes nothing, and it works the same in portrait and landscape.
+ * Turning the phone clockwise (as you look at it) makes the angle go down. Returns null when the phone is
+ * too close to flat for the angle to mean anything.
+ */
+export function wheelAngle(betaDeg: number, gammaDeg: number, minInPlane = CONTROLS.tilt.minInPlane): number | null {
+  const b = (betaDeg * Math.PI) / 180;
+  const g = (gammaDeg * Math.PI) / 180;
+  const ux = -Math.cos(b) * Math.sin(g);
+  const uy = Math.sin(b);
+  if (Math.hypot(ux, uy) < minInPlane) return null;
+  return (Math.atan2(ux, uy) * 180) / Math.PI;
+}
+
+/** Signed difference a - b in degrees, wrapped to -180..180. */
+export const angleDiff = (a: number, b: number): number => ((((a - b) % 360) + 540) % 360) - 180;
 
 /** Player sensitivity sliders: 1 = default; 2 = half the thumb travel / tilt angle for full lock; 0.25 = four times as much. */
 export const SENSITIVITY = { min: 0.25, max: 2, step: 0.1, storageKey: 'kart.sensitivity' };
@@ -132,14 +153,14 @@ export class Controls {
 
   private onTilt(e: DeviceOrientationEvent): void {
     if (e.beta === null || e.gamma === null) return;
-    const angle = screen.orientation?.angle ?? (window as unknown as { orientation?: number }).orientation ?? 0;
-    // Steering-wheel tilt: in landscape it's beta (sign depends on which way the phone is turned); in portrait, gamma.
-    const raw = angle === 90 ? e.beta : angle === -90 || angle === 270 ? -e.beta : e.gamma;
+    const raw = wheelAngle(e.beta, e.gamma);
+    if (raw === null) return; // phone held flat: keep the last steering
     this.tiltRaw = raw;
     this.tiltLive = true;
     if (this.tiltNeutral === null) this.tiltNeutral = raw;
     const T = CONTROLS.tilt;
-    let d = raw - this.tiltNeutral;
+    // Clockwise turn = angle goes down = steer right.
+    let d = angleDiff(this.tiltNeutral, raw);
     d = Math.abs(d) < T.deadZoneDeg ? 0 : d - Math.sign(d) * T.deadZoneDeg;
     const n = Math.max(-1, Math.min(1, d / (T.fullLockDeg / clampSens(this.sens.tilt) - T.deadZoneDeg)));
     const shaped = Math.sign(n) * Math.pow(Math.abs(n), T.curve);
