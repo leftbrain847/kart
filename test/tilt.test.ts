@@ -101,3 +101,36 @@ describe('tilt straight-ahead (J: "now it just turns right")', () => {
     expect(Math.abs(keen.value)).toBeGreaterThan(Math.abs(calm.value));
   });
 });
+
+describe('grip change vs. a hard turn, at every slider setting (review of PR #11)', () => {
+  /** Neutral at 0, then hold `deg` for `ms`; returns the tracker. */
+  const holdAt = (sens: number, deg: number, ms: number): TiltTracker => {
+    const t = new TiltTracker(() => sens);
+    for (let now = 0; now < 200; now += 16) t.reading(0, now);
+    for (let now = 200; now < 200 + ms; now += 16) t.reading(deg, now);
+    return t;
+  };
+
+  it('at 200% a long hard turn (55 deg for 0.7 s) keeps steering; it is not a grip change', () => {
+    const t = holdAt(2, 55, 700);
+    expect(t.neutral).toBe(0);
+    expect(Math.abs(t.value)).toBeGreaterThan(0.9);
+  });
+
+  it('at 50% and 100% a 90 deg grip change (rotation lock on, no rotate event) re-centres', () => {
+    for (const sens of [0.5, 1]) {
+      const t = holdAt(sens, 90, CONTROLS.tilt.gripChangeMs + 200);
+      expect(t.neutral).toBe(90);
+      expect(Math.abs(t.value)).toBeLessThan(0.01);
+    }
+  });
+
+  it('a flat spell breaks a run of far readings, so the timer never fires on stale time', () => {
+    const t = new TiltTracker();
+    t.reading(0, 0);
+    t.reading(90, 16);   // far: timer starts
+    t.flat();            // phone laid flat for a while
+    t.reading(90, 2000); // first far reading after: must not re-centre at once
+    expect(t.neutral).toBe(0);
+  });
+});

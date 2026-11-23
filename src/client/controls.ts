@@ -23,8 +23,14 @@ export const CONTROLS = {
     curve: 1.8,
     /** Below this share of gravity in the screen's plane (phone near flat) the wheel angle is ignored. */
     minInPlane: 0.25,
-    /** Turned this far past full lock for `gripChangeMs` = the player changed grip, not steering: re-centre. */
-    gripChangeMarginDeg: 30,
+    /**
+     * Turned at least this far from straight ahead for `gripChangeMs` = the player changed grip (e.g. rotated the
+     * phone with rotation lock on), not steering: re-centre. Fixed, not scaled by the slider, so a hard turn at high
+     * sensitivity isn't mistaken for a grip change and a real one is still caught at low sensitivity. Only when the
+     * slider puts full lock beyond it does the threshold move out, to `gripChangeLockFactor` x full lock.
+     */
+    gripChangeDeg: 75,
+    gripChangeLockFactor: 1.1,
     gripChangeMs: 500,
   },
 };
@@ -71,6 +77,11 @@ export class TiltTracker {
     return CONTROLS.tilt.fullLockDeg / clampSens(this.sensitivity());
   }
 
+  /** A reading too close to flat to use: it breaks any run of far readings (no stale grip-change timer). */
+  flat(): void {
+    this.farSince = null;
+  }
+
   /** Take straight ahead from the next reading. */
   recentre(): void {
     this.neutral = null;
@@ -87,7 +98,7 @@ export class TiltTracker {
     // The player's "Reverse tilt" switch flips it for phones that disagree.
     let d = angleDiff(raw, this.neutral) * (this.reversed() ? -1 : 1);
     const lock = this.lockDeg();
-    if (Math.abs(d) > lock + T.gripChangeMarginDeg) {
+    if (Math.abs(d) > Math.max(T.gripChangeDeg, lock * T.gripChangeLockFactor)) {
       this.farSince ??= nowMs;
       if (nowMs - this.farSince >= T.gripChangeMs) {
         this.neutral = raw;
@@ -212,7 +223,10 @@ export class Controls {
   private onTilt(e: DeviceOrientationEvent): void {
     if (e.beta === null || e.gamma === null) return;
     const raw = wheelAngle(e.beta, e.gamma);
-    if (raw === null) return; // phone held flat: keep the last steering
+    if (raw === null) {
+      this.tilt.flat(); // phone held flat: keep the last steering
+      return;
+    }
     this.tiltLive = true;
     this.tilt.reading(raw, e.timeStamp);
   }
