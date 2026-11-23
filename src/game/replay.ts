@@ -3,14 +3,14 @@
  * the server replays the whole race from the seed and the chunks so far, so the score is the server's.
  */
 import type { Input } from './sim';
-import { quantiseSteer } from './sim';
+import { quantiseSteer, STEER_STEPS } from './sim';
 
-/** One input state as a small integer: steer index 0..8, then drift, item, swap and brake bits. */
-export const encodeInput = (i: Input): number => (Math.round(quantiseSteer(i.steer) * 4) + 4) | (i.drift ? 16 : 0) | (i.item ? 32 : 0) | (i.swap ? 64 : 0) | (i.brake ? 128 : 0);
+/** One input state as a small integer: steer index 0..32 (6 bits), then drift, item, swap and brake bits. */
+export const encodeInput = (i: Input): number => (Math.round(quantiseSteer(i.steer) * STEER_STEPS) + STEER_STEPS) | (i.drift ? 64 : 0) | (i.item ? 128 : 0) | (i.swap ? 256 : 0) | (i.brake ? 512 : 0);
 
-export const decodeInput = (code: number): Input => ({ steer: ((code & 15) - 4) / 4, drift: (code & 16) !== 0, item: (code & 32) !== 0, swap: (code & 64) !== 0, brake: (code & 128) !== 0 });
+export const decodeInput = (code: number): Input => ({ steer: Math.min(1, ((code & 63) - STEER_STEPS) / STEER_STEPS), drift: (code & 64) !== 0, item: (code & 128) !== 0, swap: (code & 256) !== 0, brake: (code & 512) !== 0 });
 
-export const MAX_CODE = 255;
+export const MAX_CODE = 1023;
 
 /** Appends one tick's input to a run list [code, count, code, count, ...]. */
 export function pushInput(runs: number[], input: Input): void {

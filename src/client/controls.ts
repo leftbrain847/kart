@@ -7,27 +7,27 @@ import type { Input } from '../game/sim';
 
 export const CONTROLS = {
   /** Horizontal thumb drag in px for full lock (longer = calmer). */
-  steerRangePx: 110,
+  steerRangePx: 190,
   deadZonePx: 8,
   /** Drag response curve: 1 = linear, >1 = gentle for small moves, full lock still at the end. */
-  steerCurve: 1.7,
+  steerCurve: 2,
   /** How fast thumb steering follows the thumb, per second (stops instant snaps to full lock). */
   steerFollowPerSec: 14,
   tilt: {
     /** Degrees of tilt from where you held the phone at the start for full lock. Higher = less sensitive. */
-    fullLockDeg: 24,
+    fullLockDeg: 40,
     deadZoneDeg: 2.5,
     /** Smoothing per reading, 0..1 (lower = smoother, laggier). */
     smoothing: 0.3,
     /** Readings ease toward full lock along this curve: 1 = linear, >1 = gentler near centre. */
-    curve: 1.4,
+    curve: 1.8,
   },
 };
 
 type Button = 'drift' | 'item' | 'swap' | 'brake';
 
-/** Player sensitivity sliders: 1 = default; 2 = half the thumb travel / tilt angle for full lock. */
-export const SENSITIVITY = { min: 0.5, max: 2, step: 0.1, storageKey: 'kart.sensitivity' };
+/** Player sensitivity sliders: 1 = default; 2 = half the thumb travel / tilt angle for full lock; 0.25 = four times as much. */
+export const SENSITIVITY = { min: 0.25, max: 2, step: 0.1, storageKey: 'kart.sensitivity' };
 export interface Sensitivity {
   thumb: number;
   tilt: number;

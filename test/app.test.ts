@@ -162,7 +162,7 @@ describe('race', () => {
 
 describe('replay', () => {
   it('encodes and decodes every input state', () => {
-    for (const steer of [-1, -0.5, 0, 0.25, 1])
+    for (const steer of [-1, -0.5, -0.0625, 0, 0.25, 0.6875, 1])
       for (const drift of [false, true]) {
         const i: Input = { steer, drift, item: !drift, swap: drift, brake: !drift };
         expect(decodeInput(encodeInput(i))).toEqual(i);
@@ -210,7 +210,7 @@ describe('replay', () => {
   });
 
   it('rejects malformed or out-of-order segments', () => {
-    for (const bad of [null, [], { i: 0, team: 0 }, { i: 0, team: 0, runs: [1] }, { i: 0, team: 0, runs: [300, 1] }, { i: 0, team: 0, runs: [1, 0] }, { i: 0, team: 0, runs: [1, 2], x: 1 }, { i: '0', team: 0, runs: [1, 2] }])
+    for (const bad of [null, [], { i: 0, team: 0 }, { i: 0, team: 0, runs: [1] }, { i: 0, team: 0, runs: [2000, 1] }, { i: 0, team: 0, runs: [1, 0] }, { i: 0, team: 0, runs: [1, 2], x: 1 }, { i: '0', team: 0, runs: [1, 2] }])
       expect(parseSegment(bad)).toBeNull();
     const run = startRun(1);
     expect(applySegment(DEFAULT_RULES, run, { i: 1, team: 0, runs: [4, 10] })).toBeNull();
