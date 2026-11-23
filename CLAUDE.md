@@ -56,4 +56,5 @@ An app built on app_builder. The platform rules live in `platform/SPEC.md`: read
 
 ## App-specific notes
 
-(Add this app's own decisions here as they're made.)
+- **Kart has one sprint day: 2026-11-21.** Later work is fixes and features on the same project, not new sprint days: don't run `npm run snapshot` for it and don't commit new files to `snapshots/` (each dated file becomes a day on the public sprint site). J decided this on 2026-11-23.
+- Share work in progress as one living artifact titled "Kart", republished in place, not a new dated artifact per day.
