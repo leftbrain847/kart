@@ -50,6 +50,8 @@ const btn = {
   brake: el('button', { className: 'ctl brake', text: 'BRAKE' }),
 };
 const touchLayer = el('div', { className: 'touch' });
+// Shows what the game reads from the phone's tilt: the dot sits in the middle when the kart is going straight.
+const tiltMeter = el('div', { className: 'tiltmeter' }, [el('i')]);
 const controls = new Controls(touchLayer, btn);
 let bannerUntil = 0;
 let toastUntil = 0;
@@ -113,7 +115,7 @@ function sendChunk(final: boolean): void {
 
 /** Thumb and tilt sensitivity sliders; changes apply at once and are remembered on this device. */
 function sensitivityPanel(): HTMLElement {
-  const slider = (key: keyof Sensitivity, label: string): HTMLElement => {
+  const slider = (key: 'thumb' | 'tilt', label: string): HTMLElement => {
     const out = el('span', { className: 'val', text: `${Math.round(controls.sens[key] * 100)}%` });
     const input = el('input');
     input.type = 'range';
@@ -130,7 +132,17 @@ function sensitivityPanel(): HTMLElement {
     for (const ev of ['touchstart', 'touchmove'] as const) input.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
     return el('label', { className: 'sens' }, [el('span', { text: label }), input, out]);
   };
-  return el('div', { className: 'senses' }, [el('strong', { text: 'Steering sensitivity' }), slider('thumb', 'Thumb'), slider('tilt', 'Tilt')]);
+  const reverse = el('button', { className: 'flip' });
+  const label = (): void => {
+    reverse.textContent = controls.sens.reverseTilt ? 'Tilt direction: reversed' : 'Tilt direction: normal';
+  };
+  label();
+  reverse.addEventListener('click', () => {
+    controls.sens = { ...controls.sens, reverseTilt: !controls.sens.reverseTilt };
+    saveSensitivity(controls.sens);
+    label();
+  });
+  return el('div', { className: 'senses' }, [el('strong', { text: 'Steering sensitivity' }), slider('thumb', 'Thumb'), slider('tilt', 'Tilt'), reverse]);
 }
 
 function titleScreen(): void {
@@ -158,7 +170,7 @@ function titleScreen(): void {
         el('div', { className: 'crews' }, cards),
         el('button', { className: 'go', text: 'RACE', onClick: startRace }),
         sensitivityPanel(),
-        el('p', { className: 'how', text: 'Turn the phone like a steering wheel (or drag the left side) | hold DRIFT while turning, release for a turbo | BRAKE pivots through tight turns | hold DRIFT just before GO for a rocket start | ITEM throws the back rider\'s item | SWAP trades riders. Hold the phone how you like before tapping RACE: that\'s straight ahead.' }),
+        el('p', { className: 'how', text: 'Turn the phone like a steering wheel (or drag the left side) | hold DRIFT while turning, release for a turbo | BRAKE pivots through tight turns | hold DRIFT just before GO for a rocket start | ITEM throws the back rider\'s item | SWAP trades riders. However you hold the phone at GO is straight ahead; if tilt steers backwards, tap Tilt direction.' }),
       ]),
     ]),
   );
@@ -185,6 +197,7 @@ function startRace(): void {
       el('div', { className: 'pad' }, [btn.swap, btn.item, btn.drift]),
       btn.brake,
       el('button', { className: 'recentre', text: 'CENTRE', onClick: () => (controls.recentre(), toast('STEERING CENTRED')) }),
+      tiltMeter,
     ]),
   );
 }
@@ -300,6 +313,8 @@ function updateHud(): void {
   if (now > toastUntil) hud.toast.classList.remove('on');
   btn.drift.classList.toggle(`t${me.tier}`, me.tier > 0);
   for (const t of [1, 2, 3]) if (t !== me.tier) btn.drift.classList.remove(`t${t}`);
+  tiltMeter.classList.toggle('on', controls.tiltLive);
+  if (controls.tiltLive) tiltMeter.style.setProperty('--s', controls.tilt.value.toFixed(3));
   drawMap();
 }
 
@@ -308,6 +323,7 @@ function handleEvents(): void {
   for (const e of race.events) {
     if (e.type === 'go') {
       say('GO!', 0.8);
+      controls.recentre(); // straight ahead = how the phone is held at GO
       if (!controls.tiltLive && !ATTRACT) toast('DRAG LEFT SIDE TO STEER');
       sound.tone(880, 0.5, 'square', 0.25);
     } else if ('kart' in e && e.kart !== me) {
